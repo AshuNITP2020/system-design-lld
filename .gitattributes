@@ -1,0 +1,16 @@
+# Store every text file with LF in the repository, and check it out with LF.
+# This keeps the history stable no matter which OS a clone happens on.
+* text=auto eol=lf
+
+# Windows batch scripts are the exception: cmd.exe can misparse labels and
+# multi-line blocks when a .bat file uses LF, so gradlew.bat must keep CRLF.
+*.bat           text eol=crlf
+
+# The Unix launcher must stay LF or the shebang line breaks.
+gradlew         text eol=lf
+
+# Never run line-ending conversion over binary files.
+*.jar           binary
+*.png           binary
+*.jpg           binary
+*.gif           binary
