@@ -1,0 +1,496 @@
+<title>Two Towers, One Dispatcher</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<style>
+  /* Layout: one reading column at 65ch; evidence panels and code break out slightly wider */
+  :root {
+    --bg: #f3f4f6;
+    --surface: #ffffff;
+    --fg: #191c20;
+    --fg-muted: #5b636c;
+    --rule: #d7dbe0;
+    --rule-soft: #e7eaed;
+    --accent: #a8560b;
+    --accent-soft: #fbf1e4;
+    --fail: #a8231a;
+    --fail-soft: #fbefed;
+    --ok: #166534;
+    --ok-soft: #eef6f0;
+    --panel-bg: #1b1f24;
+    --panel-fg: #d9dde1;
+    --panel-glow: #e9b872;
+    --panel-dim: #7f8894;
+
+    --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    --body: "Source Serif 4", Georgia, "Times New Roman", serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #15181b;
+      --surface: #1d2126;
+      --fg: #e7eaed;
+      --fg-muted: #98a1aa;
+      --rule: #333941;
+      --rule-soft: #272c32;
+      --accent: #e9a24f;
+      --accent-soft: #2a2117;
+      --fail: #f08b82;
+      --fail-soft: #2d1c1a;
+      --ok: #6ee7a0;
+      --ok-soft: #15251c;
+      --panel-bg: #0e1013;
+      --panel-fg: #d9dde1;
+      --panel-glow: #e9b872;
+      --panel-dim: #6c757f;
+      color-scheme: dark;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #15181b;
+    --surface: #1d2126;
+    --fg: #e7eaed;
+    --fg-muted: #98a1aa;
+    --rule: #333941;
+    --rule-soft: #272c32;
+    --accent: #e9a24f;
+    --accent-soft: #2a2117;
+    --fail: #f08b82;
+    --fail-soft: #2d1c1a;
+    --ok: #6ee7a0;
+    --ok-soft: #15251c;
+    --panel-bg: #0e1013;
+    --panel-fg: #d9dde1;
+    --panel-glow: #e9b872;
+    --panel-dim: #6c757f;
+    color-scheme: dark;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--body);
+    font-size: 1.0625rem;
+    line-height: 1.68;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 44rem;
+    margin: 0 auto;
+    padding-inline: 20px;
+    padding-block: 3.5rem 5rem;
+  }
+
+  /* ---- masthead ---- */
+  .eyebrow {
+    font-family: var(--display);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 1rem;
+  }
+
+  h1 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(2.1rem, 7vw, 3.1rem);
+    line-height: 1.04;
+    letter-spacing: -0.022em;
+    text-wrap: balance;
+    margin: 0 0 1rem;
+  }
+
+  .standfirst {
+    font-size: 1.1875rem;
+    line-height: 1.58;
+    color: var(--fg-muted);
+    margin: 0 0 2.5rem;
+    text-wrap: pretty;
+  }
+
+  h2 {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 1.45rem;
+    line-height: 1.22;
+    letter-spacing: -0.012em;
+    text-wrap: balance;
+    margin: 3.25rem 0 0.85rem;
+  }
+
+  h3 {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 1.0625rem;
+    letter-spacing: 0.01em;
+    margin: 2rem 0 0.6rem;
+  }
+
+  p { margin: 0 0 1.1rem; text-wrap: pretty; }
+  strong { font-weight: 600; }
+  em { font-style: italic; }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.86em;
+    background: var(--rule-soft);
+    padding: 0.12em 0.36em;
+    border-radius: 3px;
+  }
+
+  /* ---- indicator panel: program output, styled like a floor indicator ---- */
+  .panel {
+    background: var(--panel-bg);
+    border-radius: 6px;
+    padding: 1.15rem 1.25rem;
+    margin: 1.75rem 0;
+    overflow-x: auto;
+    min-width: 0;
+  }
+  .panel pre {
+    margin: 0;
+    font-family: var(--mono);
+    font-size: 0.8125rem;
+    line-height: 1.75;
+    color: var(--panel-fg);
+    font-variant-numeric: tabular-nums;
+  }
+  .panel .dim { color: var(--panel-dim); }
+  .panel .glow { color: var(--panel-glow); }
+  .panel-label {
+    font-family: var(--display);
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--panel-dim);
+    margin: 0 0 0.7rem;
+  }
+
+  /* ---- source code ---- */
+  pre.code {
+    font-family: var(--mono);
+    font-size: 0.8125rem;
+    line-height: 1.7;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 1rem 1.15rem;
+    margin: 1.5rem 0;
+    overflow-x: auto;
+    min-width: 0;
+  }
+  pre.code code { background: none; padding: 0; font-size: inherit; }
+
+  /* ---- the three false claims ---- */
+  .claims {
+    list-style: none;
+    margin: 1.5rem 0 2rem;
+    padding: 0;
+    display: grid;
+    gap: 0.75rem;
+  }
+  .claims li {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.85rem;
+    align-items: baseline;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 0.9rem 1.1rem;
+  }
+  .verdict {
+    font-family: var(--display);
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.5rem;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+  .verdict.no { background: var(--fail-soft); color: var(--fail); }
+  .verdict.yes { background: var(--accent-soft); color: var(--accent); }
+  .claims .claim-text { font-size: 1rem; line-height: 1.5; }
+
+  /* ---- problems: numbered like floor buttons ---- */
+  .problem { margin-top: 3rem; }
+  .problem-head {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.9rem;
+    align-items: center;
+    margin-bottom: 0.7rem;
+  }
+  .btn-num {
+    font-family: var(--mono);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    width: 2.1rem;
+    height: 2.1rem;
+    border-radius: 50%;
+    border: 1.5px solid var(--accent);
+    color: var(--accent);
+    display: grid;
+    place-items: center;
+    flex: none;
+    font-variant-numeric: tabular-nums;
+  }
+  .problem-head h2 { margin: 0; font-size: 1.3rem; }
+
+  .analogy {
+    border-left: 2px solid var(--accent);
+    padding: 0.15rem 0 0.15rem 1.1rem;
+    margin: 1.4rem 0;
+    color: var(--fg-muted);
+    font-size: 1.03rem;
+  }
+  .analogy p { margin: 0; }
+  .analogy p + p { margin-top: 0.7rem; }
+
+  .cost {
+    font-family: var(--display);
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    background: var(--fail-soft);
+    color: var(--fail);
+    border-radius: 5px;
+    padding: 0.8rem 1rem;
+    margin: 1.4rem 0;
+  }
+  .cost strong {
+    display: block;
+    font-size: 0.65rem;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    opacity: 0.75;
+    margin-bottom: 0.25rem;
+    font-weight: 700;
+  }
+
+  /* ---- the fix ---- */
+  .fix {
+    background: var(--ok-soft);
+    border: 1px solid color-mix(in srgb, var(--ok) 25%, transparent);
+    border-radius: 6px;
+    padding: 1.5rem 1.4rem;
+    margin: 1.75rem 0;
+  }
+  .fix p:last-child { margin-bottom: 0; }
+  .fix .rule-text {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 1.125rem;
+    line-height: 1.45;
+    color: var(--ok);
+    margin: 0 0 1rem;
+    text-wrap: balance;
+  }
+
+  .test-q {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 1.1875rem;
+    line-height: 1.4;
+    color: var(--accent);
+    border-top: 2px solid var(--accent);
+    border-bottom: 2px solid var(--accent);
+    padding: 1rem 0;
+    margin: 1.75rem 0;
+    text-wrap: balance;
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--rule);
+    margin: 3.5rem 0 0;
+  }
+
+  .footnote {
+    font-size: 0.9375rem;
+    color: var(--fg-muted);
+    margin-top: 2.5rem;
+  }
+
+  @media (max-width: 440px) {
+    .wrap { padding-block: 2.5rem 3.5rem; }
+    .claims li { grid-template-columns: 1fr; gap: 0.5rem; }
+    .verdict { justify-self: start; }
+  }
+</style>
+
+<div class="wrap">
+
+  <p class="eyebrow">Elevator LLD &middot; Design note</p>
+  <h1>Two Towers, One Dispatcher</h1>
+  <p class="standfirst">Why a <code>static</code> singleton dispatcher is the wrong tool for this design — seven failures in plain language, every one of them reproduced from the elevator code as it stands today.</p>
+
+  <p>Here is the shortest demonstration. Two buildings are created in one program, each with its own elevator. A rider in the first building presses the UP button on floor 6. This is the unmodified <code>Building</code> class:</p>
+
+  <div class="panel">
+    <p class="panel-label">Program output</p>
+<pre>A rider standing in TOWER A, floor 6, presses UP.
+<span class="dim">  Tower A's elevator has 0 pending request(s)
+  Tower B's elevator has 1 pending request(s)</span>
+<span class="glow">  &gt;&gt;&gt; The rider in Tower A is waiting for a lift that is moving in Tower B.</span></pre>
+  </div>
+
+  <p>A person pressed a button, and an elevator in a different building started moving. Nothing crashed. Nothing was logged. The rider simply stands there, and no one is coming.</p>
+
+  <h2>Where all of this comes from</h2>
+
+  <p>The word <code>static</code> does not mean "shared" or "convenient". It makes a much stronger statement about the world:</p>
+
+  <p><strong>There is exactly one of these in the entire program, it lives forever, and any code anywhere can reach it and replace it.</strong></p>
+
+  <p>That is three separate claims, and for a dispatcher that owns a specific fleet of elevators in a specific building, here is how they hold up:</p>
+
+  <ul class="claims">
+    <li><span class="verdict no">False</span><span class="claim-text">There is exactly <strong>one</strong> dispatcher. A company with two towers needs two.</span></li>
+    <li><span class="verdict no">False</span><span class="claim-text">It lives <strong>forever</strong>. Every test wants a fresh one, and every new building overwrites the last.</span></li>
+    <li><span class="verdict yes">True</span><span class="claim-text">Any code anywhere can <strong>reach it and replace it</strong>. This one is accurate, and that is exactly the problem.</span></li>
+  </ul>
+
+  <p>Each of the seven failures below is one of those claims coming due.</p>
+
+  <div class="problem">
+    <div class="problem-head"><span class="btn-num">1</span><h2>The last building built steals everyone's buttons</h2></div>
+
+    <p>Every new building calls <code>ExternalButtonDispatcher.init(...)</code> in its constructor. There is only one global slot to write into, so the second building overwrites the first. Last one wins.</p>
+
+    <p>The dangerous part: Tower A's buttons never held a reference to Tower A's dispatcher. They hold nothing at all. They ask the global slot at the moment of the press, and by then the slot says Tower B.</p>
+
+    <div class="analogy">
+      <p>Instead of each building having its own control room, every building in the city dials the same phone number. Whoever answered most recently is who you get. The rider in Tower A dials, and a dispatcher in another building picks up and sends one of their lifts.</p>
+    </div>
+
+    <div class="cost"><strong>What it costs you</strong>A bug that silently produces a wrong answer is far worse than one that crashes. A crash tells you where to look. This one produces an unhappy rider and no evidence at all.</div>
+  </div>
+
+  <div class="problem">
+    <div class="problem-head"><span class="btn-num">2</span><h2>The test that passes alone and fails in the suite</h2></div>
+
+    <p>You write a test for a two-car building. It passes. A teammate writes a test for a three-car building. Now yours fails, but only when it runs after theirs, and if the test runner uses multiple threads, only sometimes.</p>
+
+    <p>You will spend an afternoon re-reading your test, which is correct, and your controller, which is also correct. Neither one is the problem. Both tests write into the same invisible slot, and whichever ran last wins.</p>
+
+    <div class="cost"><strong>What it costs you</strong>This is the origin of the flaky test: it passes on your laptop and fails in CI. It is the most demoralising category of bug to chase, because the fault is never in the code you are reading.</div>
+  </div>
+
+  <div class="problem">
+    <div class="problem-head"><span class="btn-num">3</span><h2>The phone that still rings on the old desk</h2></div>
+
+    <p>After a second <code>init()</code>, <code>getInstance()</code> hands out a brand-new object. But anything that took a reference <em>earlier</em> still holds the old one, and the old one still works perfectly.</p>
+
+    <div class="panel">
+      <p class="panel-label">Reproduced from the current code</p>
+<pre><span class="dim">same instance after re-init?</span>  <span class="glow">false</span>
+<span class="dim">request landed on fleet-1 car?</span> <span class="glow">true</span>   <span class="dim">(fleet-2 car received 0)</span></pre>
+    </div>
+
+    <div class="analogy">
+      <p>The building hires a new dispatcher and gives them a new desk and a new phone. The old desk is cleared out, but the old phone is still plugged in, and a few buttons are still wired to it. Press one of those and your call rings on an empty desk in a closed office.</p>
+    </div>
+
+    <div class="cost"><strong>What it costs you</strong>Half the system can be talking to the current dispatcher and half to the retired one. Both appear to work. Neither is correct, and nothing in the compiler can tell you which half you are in.</div>
+  </div>
+
+  <div class="problem">
+    <div class="problem-head"><span class="btn-num">4</span><h2>The constructor that lies to you</h2></div>
+
+    <p>Six months from now, someone reads this line and believes it:</p>
+
+<pre class="code"><code>new ExternalButton(5, Direction.UP)</code></pre>
+
+    <p>Two arguments, both obviously necessary, nothing missing. So they build a lobby kiosk, or a diagnostic tool, or a test fixture that creates a button directly — and it fails at run time.</p>
+
+    <div class="analogy">
+      <p>It is like a form that asks for your name and address. You fill it in completely, and the clerk rejects you because you did not bring a document the form never mentioned. The requirement was real. It was just invisible.</p>
+    </div>
+
+    <p>The <code>IllegalStateException</code> message in the code is genuinely good; it tells the person exactly what to do. But it is still a message delivered while the program is running, possibly in production, rather than a red underline in the editor before anyone commits.</p>
+  </div>
+
+  <div class="problem">
+    <div class="problem-head"><span class="btn-num">5</span><h2>Anyone can re-wire the building, from anywhere</h2></div>
+
+    <p><code>init()</code> is public and static, so any line of code in the entire program can call it and silently change where every button in the building sends its calls. No ownership, no permission, no warning.</p>
+
+    <div class="analogy">
+      <p>It is a switch in a public hallway that re-wires the whole building, and the only label on it reads "init". Nothing stops a cleanup refactor, a debug utility, or a well-meaning new teammate from flipping it.</p>
+    </div>
+  </div>
+
+  <div class="problem">
+    <div class="problem-head"><span class="btn-num">6</span><h2>Two threads that see two different answers</h2></div>
+
+    <p>This one surprises most people, so it is worth the background.</p>
+
+    <p>A modern processor does not have one single memory that every thread reads from. Each core keeps its own fast local copy of recently used values. When one thread writes to a shared variable, threads on other cores may keep reading their stale local copy for a while — unless the language is explicitly told to push the update through to everybody.</p>
+
+    <p>The static field here is not marked <code>volatile</code>, so Java makes <strong>no promise</strong> about when other threads see what <code>init()</code> wrote. In practice: the building starts, a background thread handles an early button press, and it sees <code>null</code>, throwing "init must be called before use" even though <code>init()</code> definitely already ran.</p>
+
+    <div class="analogy">
+      <p>Someone updates the notice board in the lobby while everyone else is reading photocopies they took that morning. There is no rule saying when they have to walk back and check the board.</p>
+    </div>
+
+    <div class="cost"><strong>What it costs you</strong>This fails roughly once in a thousand startups, never on your laptop, and only on the production machine with more cores.</div>
+
+    <p>A <code>final</code> field set in a constructor comes with a real guarantee from the language: once the object is handed out, its final fields are fully visible to everyone. Injection gives you that fix for free.</p>
+  </div>
+
+  <div class="problem">
+    <div class="problem-head"><span class="btn-num">7</span><h2>The shopping list that is not a copy</h2></div>
+
+    <p><code>Building</code> passes its own live <code>ArrayList</code> into the dispatcher, and the dispatcher stores that exact object rather than a copy. Two classes now own one list.</p>
+
+    <div class="analogy">
+      <p>You give someone your shopping list, except it is not a photocopy — it is the same sheet of paper. You cross something off later, their list changes too, and neither of you realises.</p>
+    </div>
+
+    <p>Today nothing modifies the list after construction, so it works by luck rather than design. The day someone implements "take a car out of service" by removing it from the building's list, the dispatcher's fleet silently changes underneath it. If that removal happens on another thread while a strategy is looping over the fleet, you get a <code>ConcurrentModificationException</code> thrown from inside code that looks completely innocent.</p>
+  </div>
+
+  <h2>What constructor injection replaces all seven with</h2>
+
+  <div class="fix">
+    <p class="rule-text">This button uses this dispatcher. It was decided when the button was built. It can never change.</p>
+    <p>No global slot for a second building to overwrite. No stale handles, because nothing is handed out on request. No hidden requirement, because the dependency is in the constructor signature. No way for distant code to re-point it, because there is nothing to re-point. And a <code>final</code> field carries a genuine thread-visibility guarantee.</p>
+  </div>
+
+  <p>In the elevator code this is two extra parameters, threaded through the composition root that already exists:</p>
+
+<pre class="code"><code>// Building — already the composition root
+ExternalButtonDispatcher external =
+        new ExternalButtonDispatcher(List.copyOf(controllers));
+for (int f = 0; f &lt; numberOfFloors; f++)
+    floors.add(new Floor(f, external));
+
+// ExternalButton
+private final ExternalButtonDispatcher dispatcher;   // set once, never reassigned
+
+public void press() {
+    dispatcher.dispatch(floorNumber, direction);
+}</code></pre>
+
+  <p>The <code>List.copyOf</code> closes problem seven in the same stroke, and <code>init</code> and <code>getInstance</code> can both be deleted.</p>
+
+  <h2>So when is a singleton actually fine?</h2>
+
+  <p>The pattern is not evil. It is a strong claim that happens to be false most of the time. One question settles it:</p>
+
+  <p class="test-q">Could a reasonable person ever want two of these at the same time?</p>
+
+  <p>For a logger facade or a stateless maths utility the answer is no. One is genuinely all that can exist, and it holds no state anybody could corrupt. For a dispatcher that owns a specific fleet of elevators in a specific building, the answer is obviously yes — and the Tower A / Tower B output at the top of this page is what "yes" looks like when the code insists otherwise.</p>
+
+  <hr>
+  <p class="footnote">Every failure on this page was reproduced against the elevator design as it currently stands, not reasoned about in the abstract.</p>
+
+</div>

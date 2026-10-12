@@ -1,0 +1,30 @@
+// Shared configuration for every machine-coding subproject.
+// These are plain Java exercises: no Spring, no web server, no database.
+// The only dependency any of them needs is JUnit 5, for the tests.
+
+subprojects {
+    apply plugin: 'java'
+
+    group = 'com.ashutosh.lld'
+    version = '1.0-SNAPSHOT'
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(21)
+        }
+    }
+
+    repositories {
+        mavenCentral()
+    }
+
+    dependencies {
+        testImplementation platform('org.junit:junit-bom:5.10.0')
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+
+    test {
+        useJUnitPlatform()
+    }
+}

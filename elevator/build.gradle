@@ -1,0 +1,8 @@
+plugins {
+    id 'application'
+}
+
+// Runs the five scenarios in DemoElevatorDesign:  ./gradlew :elevator:run
+application {
+    mainClass = 'DemoElevatorDesign'
+}

@@ -1,0 +1,17 @@
+plugins {
+    id 'application'
+}
+
+// Interactive console game:  ./gradlew :tictactoe:run --console=plain
+application {
+    mainClass = 'Main'
+}
+
+dependencies {
+    // Main.java carries an @SpringBootApplication annotation that the game does not
+    // use for anything — it was inherited from the old combined repository. This
+    // dependency exists only so that annotation still resolves. Delete the
+    // annotation and its import from Main.java and this line can go with them,
+    // leaving the whole repository free of Spring.
+    implementation 'org.springframework.boot:spring-boot-autoconfigure:3.2.4'
+}

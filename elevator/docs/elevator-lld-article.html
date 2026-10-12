@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Design an Elevator System — But Think Before You Scroll</title>
+<style>
+  body {
+    font-family: Georgia, 'Times New Roman', serif;
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 48px 20px;
+    color: #242424;
+    background: #ffffff;
+    line-height: 1.75;
+    font-size: 19px;
+  }
+  h1 { font-size: 38px; line-height: 1.2; margin-bottom: 8px; }
+  h2 { font-size: 28px; margin-top: 48px; }
+  h3 { font-size: 22px; margin-top: 36px; }
+  .subtitle { color: #6b6b6b; font-size: 21px; margin-top: 0; }
+  pre {
+    background: #f6f6f6;
+    border-radius: 6px;
+    padding: 16px;
+    overflow-x: auto;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  code { font-family: 'SFMono-Regular', Consolas, Menlo, monospace; }
+  p > code, li > code, td > code {
+    background: #f2f2f2;
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-size: 16px;
+  }
+  blockquote {
+    border-left: 3px solid #242424;
+    margin-left: 0;
+    padding: 12px 20px;
+    background: #faf8f2;
+    color: #333;
+  }
+  blockquote strong { font-style: normal; }
+  figure { margin: 36px 0; text-align: center; }
+  figure svg { max-width: 100%; height: auto; }
+  figcaption { font-size: 15px; color: #6b6b6b; margin-top: 10px; line-height: 1.5; }
+  table { border-collapse: collapse; width: 100%; font-size: 16px; }
+  th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; vertical-align: top; }
+  th { background: #f6f6f6; }
+  hr { border: none; border-top: 1px solid #ddd; margin: 48px 0; }
+</style>
+</head>
+<body>
+
+<h1>Design an Elevator System &mdash; But Think Before You Scroll</h1>
+<p class="subtitle">We start with the most naive code possible, and every fancy class has to earn its way in through a bug</p>
+
+<p>When I was learning the elevator problem, I noticed something about the articles I was reading. They all did the thinking for me. They open with a finished diagram &mdash; seven or eight classes with important-sounding names &mdash; as if anyone sits down and naturally writes those classes. Nobody does. I would nod along, feel like I understood, and a week later I could not reconstruct any of it, because I had never felt the problems those classes solve.</p>
+
+<p>So this walkthrough is built the opposite way. We start with the most naive design that could possibly work &mdash; one class, one queue of plain integers &mdash; and we only ever add a concept when the current code <em>visibly breaks</em>. Every class in the finished design will arrive the same way: as a repair, at the exact moment the naive version fails. If a class cannot point to the bug that created it, it does not get in.</p>
+
+<p>And at every fork I will stop and ask you a question. Please actually pause and answer, on paper or in your head, before scrolling past the box. Some questions you can fully work out; for others you are only expected to attempt them, and I will tell you which is which.</p>
+
+<p>Our building: <code>N</code> floors, <code>M</code> elevators. Every floor has UP and DOWN buttons (<em>hall calls</em>). Inside each car, one button per floor (<em>cabin calls</em>). Doors, capacity and emergency mode are out of scope for now.</p>
+
+<h2>Step 1: Start embarrassingly simple</h2>
+
+<blockquote><strong>Stop and think:</strong> Forget patterns. What is the smallest class that could run a single elevator at all?</blockquote>
+
+<p>Something like this &mdash; and this is genuinely where we begin:</p>
+
+<pre><code>class Elevator {
+    int currentFloor;
+    Direction direction;                                  // UP, DOWN, IDLE
+    Queue&lt;Integer&gt; pendingStops = new LinkedList&lt;&gt;();    // served in arrival order
+
+    void addStop(int floor) {
+        pendingStops.add(floor);
+    }
+}</code></pre>
+
+<p>One class. Stops are plain integers, served first-come-first-served. That is the entire design for now &mdash; and if it looks like something is missing, it is missing <em>on purpose</em>. Every additional piece will arrive only when a problem forces it, and that moment is the whole lesson.</p>
+
+<h2>Step 2: The first bug &mdash; serving in arrival order</h2>
+
+<blockquote><strong>Stop and think:</strong> The car is at floor 1. Stops arrive in this order: 7, 2, 9. Trace what our LinkedList does. How far does the car travel? What order would a sensible elevator use?</blockquote>
+
+<p>Our naive queue serves 1 &rarr; 7 &rarr; 2 &rarr; 9: up six floors, down five, up seven. A sensible elevator does 1 &rarr; 2 &rarr; 7 &rarr; 9 &mdash; eight floors total instead of eighteen. First-come-first-served makes the car zig-zag.</p>
+
+<figure>
+<svg viewBox="0 0 640 370" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="f1r" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#dc2626"/></marker>
+    <marker id="f1g" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#16a34a"/></marker>
+  </defs>
+  <text x="150" y="30" text-anchor="middle" font-size="15" font-weight="bold" fill="#dc2626">Arrival order — 18 floors travelled</text>
+  <text x="480" y="30" text-anchor="middle" font-size="15" font-weight="bold" fill="#16a34a">Sweep — 8 floors travelled</text>
+
+  <line x1="90" y1="60" x2="90" y2="348" stroke="#9ca3af" stroke-width="1.5"/>
+  <g font-size="13" fill="#6b6b6b" text-anchor="end">
+    <text x="76" y="344">1</text><text x="76" y="310">2</text><text x="76" y="276">3</text><text x="76" y="242">4</text><text x="76" y="208">5</text><text x="76" y="174">6</text><text x="76" y="140">7</text><text x="76" y="106">8</text><text x="76" y="72">9</text>
+  </g>
+  <circle cx="90" cy="340" r="5" fill="#ffffff" stroke="#242424" stroke-width="2"/>
+  <circle cx="90" cy="136" r="5" fill="#242424"/><circle cx="90" cy="306" r="5" fill="#242424"/><circle cx="90" cy="68" r="5" fill="#242424"/>
+  <line x1="120" y1="340" x2="120" y2="140" stroke="#dc2626" stroke-width="2.5" marker-end="url(#f1r)"/>
+  <text x="130" y="244" font-size="13" fill="#dc2626">1</text>
+  <line x1="150" y1="136" x2="150" y2="302" stroke="#dc2626" stroke-width="2.5" marker-end="url(#f1r)"/>
+  <text x="160" y="224" font-size="13" fill="#dc2626">2</text>
+  <line x1="180" y1="306" x2="180" y2="72" stroke="#dc2626" stroke-width="2.5" marker-end="url(#f1r)"/>
+  <text x="190" y="184" font-size="13" fill="#dc2626">3</text>
+
+  <line x1="410" y1="60" x2="410" y2="348" stroke="#9ca3af" stroke-width="1.5"/>
+  <g font-size="13" fill="#6b6b6b" text-anchor="end">
+    <text x="396" y="344">1</text><text x="396" y="310">2</text><text x="396" y="276">3</text><text x="396" y="242">4</text><text x="396" y="208">5</text><text x="396" y="174">6</text><text x="396" y="140">7</text><text x="396" y="106">8</text><text x="396" y="72">9</text>
+  </g>
+  <circle cx="410" cy="340" r="5" fill="#ffffff" stroke="#242424" stroke-width="2"/>
+  <circle cx="410" cy="136" r="5" fill="#242424"/><circle cx="410" cy="306" r="5" fill="#242424"/><circle cx="410" cy="68" r="5" fill="#242424"/>
+  <line x1="440" y1="340" x2="440" y2="310" stroke="#16a34a" stroke-width="2.5" marker-end="url(#f1g)"/>
+  <text x="450" y="330" font-size="13" fill="#16a34a">1</text>
+  <line x1="465" y1="306" x2="465" y2="140" stroke="#16a34a" stroke-width="2.5" marker-end="url(#f1g)"/>
+  <text x="475" y="226" font-size="13" fill="#16a34a">2</text>
+  <line x1="490" y1="136" x2="490" y2="72" stroke="#16a34a" stroke-width="2.5" marker-end="url(#f1g)"/>
+  <text x="500" y="108" font-size="13" fill="#16a34a">3</text>
+</svg>
+<figcaption>The same three requests (7, 2, 9) with the car starting at floor 1. Served in arrival order the car travels 18 floors; swept, it travels 8.</figcaption>
+</figure>
+
+<p>Your next instinct is probably &ldquo;serve the nearest floor first.&rdquo; That fixes travel but creates a worse problem: starvation. A rider on floor 9 can wait forever while closer requests keep landing in front of them.</p>
+
+<blockquote><strong>Stop and think:</strong> You want efficient travel AND a guarantee that nobody waits forever. You do not need any algorithm&rsquo;s name &mdash; just describe the car&rsquo;s movement pattern in plain words.</blockquote>
+
+<p>Most people land somewhere close to: <em>&ldquo;while I&rsquo;m going up, serve everything useful above me; when nothing is left above, turn around and do the same going down.&rdquo;</em> If you got anywhere near that &mdash; that is the answer. Efficient, because the car never doubles back mid-sweep; starvation-free, because every floor is reached within one full sweep. This family of scheduling is usually described as <strong>SCAN/LOOK-style algorithms</strong> (disk schedulers use the same idea). Real elevator firmware is more sophisticated, but for our design a LOOK-style sweep is the right abstraction &mdash; and deriving the behavior matters more than knowing the name.</p>
+
+<h3>So the LinkedList has to go. What replaces it?</h3>
+
+<p>During a sweep the car repeatedly asks one question: &ldquo;what is my next stop?&rdquo; Ordered by floor, cheap inserts, fast peek &mdash; <em>PriorityQueue</em> is the obvious thought. One priority queue, though?</p>
+
+<blockquote><strong>Stop and think:</strong> Try to break a single min-heap yourself. The car is at floor 5, moving DOWN. Pending stops: 2, 4, 7. What does <code>peek()</code> give you &mdash; and what is the next floor the car should actually stop at?</blockquote>
+
+<p><code>peek()</code> gives 2, the smallest floor. But the car is at 5 moving down &mdash; its actual next stop is <strong>4</strong>. That gap is the whole problem. Trusting the heap, the car drives past 4 without stopping (the head says 2, and 4 &ne; 2), serves 2 at the bottom, then climbs back up for 4. The sweep is broken. A max-heap fails the same way on upward sweeps, mirrored. And ordering the heap by &ldquo;distance from the car&rdquo; does not work either &mdash; distances change every time the car moves, and a heap cannot re-sort itself when its keys change underneath it.</p>
+
+<figure>
+<svg viewBox="0 0 640 330" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="f2r" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#dc2626"/></marker>
+    <marker id="f2d" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#242424"/></marker>
+    <marker id="f2gr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#9ca3af"/></marker>
+  </defs>
+  <line x1="120" y1="40" x2="120" y2="310" stroke="#9ca3af" stroke-width="1.5"/>
+  <g font-size="13" fill="#6b6b6b" text-anchor="end">
+    <text x="104" y="304">1</text><text x="104" y="262">2</text><text x="104" y="220">3</text><text x="104" y="178">4</text><text x="104" y="136">5</text><text x="104" y="94">6</text><text x="104" y="52">7</text>
+  </g>
+  <circle cx="120" cy="258" r="5" fill="#242424"/><circle cx="120" cy="174" r="5" fill="#242424"/><circle cx="120" cy="48" r="5" fill="#242424"/>
+
+  <rect x="142" y="117" width="56" height="28" rx="6" fill="#2563eb"/>
+  <text x="170" y="136" text-anchor="middle" font-size="13" fill="#ffffff">car</text>
+  <line x1="170" y1="150" x2="170" y2="168" stroke="#242424" stroke-width="2" marker-end="url(#f2d)"/>
+
+  <line x1="250" y1="132" x2="250" y2="252" stroke="#dc2626" stroke-width="2.5" stroke-dasharray="6 4" marker-end="url(#f2r)"/>
+  <text x="264" y="179" font-size="15" font-weight="bold" fill="#dc2626">&#10007; skips 4</text>
+  <line x1="290" y1="258" x2="290" y2="180" stroke="#9ca3af" stroke-width="2" stroke-dasharray="4 4" marker-end="url(#f2gr)"/>
+  <text x="302" y="218" font-size="12.5" fill="#6b6b6b">comes back</text>
+  <text x="302" y="234" font-size="12.5" fill="#6b6b6b">up later</text>
+
+  <rect x="412" y="70" width="210" height="166" rx="8" fill="#f6f6f6"/>
+  <g font-family="Consolas, Menlo, monospace" font-size="14">
+    <text x="426" y="100" fill="#242424" font-weight="bold">single min-heap</text>
+    <text x="426" y="128" fill="#242424">[2, 4, 7]</text>
+    <text x="426" y="156" fill="#dc2626">peek() &#8594; 2</text>
+    <text x="426" y="190" fill="#242424">at floor 4: 4 &#8800; 2</text>
+    <text x="426" y="214" fill="#dc2626">&#8594; no stop</text>
+  </g>
+</svg>
+<figcaption>One min-heap, car at 5 going down: <code>peek()</code> says 2, so the car compares every floor only with 2 &mdash; and drives straight past 4.</figcaption>
+</figure>
+
+<p>The real problem: a sweep needs <em>two different orderings</em> &mdash; ascending while going up, descending while going down &mdash; and one container with one comparator gives you only one. So the naive queue becomes two heaps, split by which side of the car the stop is on. Still plain integers, still inside <code>Elevator</code>:</p>
+
+<pre><code>class Elevator {
+    int currentFloor;
+    Direction direction;
+    PriorityQueue&lt;Integer&gt; upQueue   = new PriorityQueue&lt;&gt;();                          // min-heap
+    PriorityQueue&lt;Integer&gt; downQueue = new PriorityQueue&lt;&gt;(Collections.reverseOrder()); // max-heap
+}</code></pre>
+
+<p><code>upQueue</code> holds stops above the car &mdash; sweeping up, you reach the <em>lowest</em> one first, so min-heap. <code>downQueue</code> holds stops below &mdash; sweeping down, the <em>highest</em> comes first, so max-heap. Either way, &ldquo;should I stop here?&rdquo; is a single <code>peek()</code>.</p>
+
+<h2>Step 3: The second bug &mdash; which queue does a request go into?</h2>
+
+<p>I got this one wrong on my first attempt, and it taught me more than everything that went right. Take the pause seriously.</p>
+
+<blockquote><strong>Commit to an answer before scrolling:</strong> The car is at floor 5, heading up to serve floor 8. A rider on floor 3 presses UP. Which queue does floor 3 go into &mdash; up-queue or down-queue?</blockquote>
+
+<p>The instinctive answer: &ldquo;rider pressed UP, so up-queue.&rdquo; Let us run it honestly. The up-queue was <code>{8}</code>; add 3, the min-heap reorders, and 3 is now the head. Each tick the car checks the head. &ldquo;Am I at floor 3?&rdquo; At 6: no. At 7: no. At 8: still no &mdash; and here is the ugly part: <em>it sails past floor 8 as well</em>, because its own passenger&rsquo;s stop is buried in the heap behind the unreachable 3. The car climbs forever.</p>
+
+<figure>
+<svg viewBox="0 0 640 330" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="f3r" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#dc2626"/></marker>
+  </defs>
+  <line x1="130" y1="24" x2="130" y2="310" stroke="#9ca3af" stroke-width="1.5"/>
+  <g font-size="13" fill="#6b6b6b" text-anchor="end">
+    <text x="114" y="304">1</text><text x="114" y="276">2</text><text x="114" y="248">3</text><text x="114" y="220">4</text><text x="114" y="192">5</text><text x="114" y="164">6</text><text x="114" y="136">7</text><text x="114" y="108">8</text><text x="114" y="80">9</text><text x="114" y="52">10</text>
+  </g>
+  <circle cx="130" cy="244" r="6" fill="#dc2626"/>
+  <text x="150" y="249" font-size="13" fill="#dc2626">rider pressed UP</text>
+  <circle cx="130" cy="104" r="5" fill="#9ca3af"/>
+  <text x="190" y="100" font-size="13" fill="#6b6b6b">passenger&#8217;s stop: 8 &#8212; never served</text>
+
+  <rect x="142" y="146" width="56" height="28" rx="6" fill="#2563eb"/>
+  <text x="170" y="165" text-anchor="middle" font-size="13" fill="#ffffff">car &#8593;</text>
+  <line x1="170" y1="140" x2="170" y2="30" stroke="#dc2626" stroke-width="2.5" stroke-dasharray="6 4" marker-end="url(#f3r)"/>
+  <text x="184" y="56" font-size="14" fill="#dc2626">keeps climbing&#8230;</text>
+
+  <rect x="390" y="70" width="228" height="178" rx="8" fill="#f6f6f6"/>
+  <text x="404" y="98" font-size="15" font-weight="bold" fill="#242424">upQueue (min-heap)</text>
+  <rect x="404" y="112" width="200" height="50" rx="6" fill="#fee2e2" stroke="#dc2626"/>
+  <text x="416" y="132" font-size="14" font-weight="bold" fill="#dc2626">head: 3</text>
+  <text x="416" y="152" font-size="12.5" fill="#dc2626">below the car &#8212; unreachable</text>
+  <rect x="404" y="172" width="200" height="50" rx="6" fill="#e5e7eb"/>
+  <text x="416" y="192" font-size="14" font-weight="bold" fill="#242424">8</text>
+  <text x="416" y="212" font-size="12.5" fill="#6b6b6b">blocked behind the head</text>
+</svg>
+<figcaption>The rider at 3 pressed UP, so 3 went into the up-queue &mdash; and became its head, sitting below a car that only moves up. The car can never match it, and floor 8 is trapped behind it.</figcaption>
+</figure>
+
+<p>I call this <strong>head-of-queue poisoning</strong>, and it is worth remembering beyond elevators: any consumer that only inspects the front of an ordered queue is one unserviceable element away from blocking everything behind it.</p>
+
+<blockquote><strong>Stop and think:</strong> What went wrong conceptually? The rider genuinely wants to go up. Why was &ldquo;up&rdquo; still the wrong label for filing the request?</blockquote>
+
+<p>Because a hall call contains <strong>two different directions</strong>, and they often disagree:</p>
+
+<ol>
+  <li>The direction the <strong>rider wants to travel</strong>: UP.</li>
+  <li>The direction the <strong>car must travel to reach the rider</strong>: DOWN &mdash; the car is at 5, the rider at 3.</li>
+</ol>
+
+<p>The queues describe the car&rsquo;s journey, so they must be filed by the car&rsquo;s travel direction. Call this the <strong>filing rule</strong>. Still just integers, still inside <code>Elevator</code> &mdash; the fix is one comparison:</p>
+
+<pre><code>PriorityQueue&lt;Integer&gt; chooseQueue(int floor) {
+    if (floor &gt; currentFloor) return upQueue;
+    if (floor &lt; currentFloor) return downQueue;
+    return upQueue;   // same floor — we will revisit this case
+}</code></pre>
+
+<h2>Step 4: The third bug mints our first real class &mdash; Request</h2>
+
+<p>The filing rule should leave you slightly uncomfortable. We just proved the rider&rsquo;s button does not choose the queue. So&hellip;</p>
+
+<blockquote><strong>Stop and think:</strong> Is the UP/DOWN button pointless then? Try this: the car is climbing from 3 towards a passenger&rsquo;s stop at 8, and a rider on 6 has pressed DOWN. Our queues hold plain integers, so the up-queue contains {6, 8}. What will the car do at floor 6 &mdash; and what SHOULD it do?</blockquote>
+
+<p>Our code stops at 6 and opens the doors &mdash; the head says 6, the car is at 6, match. But the rider there wants to go <em>down</em>. They board a rising car, ride up to 8 against their wish, and come back annoyed. What the car <em>should</em> do is pass 6 silently, serve 8, and open at 6 on the way back, already heading the rider&rsquo;s way. Call that the <strong>serve rule</strong>: open the doors only if the current sweep matches the rider&rsquo;s direction.</p>
+
+<p>And now look at our data structure and watch it fail at a more basic level: the queue holds the integer <code>6</code>. At serve time, the car asks &ldquo;should I open for this stop?&rdquo; &mdash; and a bare <code>6</code> <em>cannot answer</em>, because it does not know who it is for. The rider&rsquo;s intent existed for one moment, when the button was pressed, and our naive design threw it away. No clever algorithm can recover information we never stored.</p>
+
+<p>So the integer is forced to grow into a small class. This is the first time in this article a &ldquo;design&rdquo; class appears &mdash; and notice it did not come from a pattern catalog; it came from a question our data could not answer:</p>
+
+<pre><code>public class Request {
+    private final int floor;
+    private final Direction riderDirection;   // null for cabin calls
+
+    public static Request hallCall(int floor, Direction riderDirection) { ... }
+    public static Request cabinCall(int floor) { ... }
+
+    public boolean servableDuring(Direction sweep) {
+        return riderDirection == null || riderDirection == sweep;
+    }
+}</code></pre>
+
+<p>Notice the asymmetry in the two factory methods. A hall call carries intent. A cabin call does not &mdash; the passenger is already inside, drop them wherever you pass their floor. The queues become <code>PriorityQueue&lt;Request&gt;</code> (same two heaps, now comparing by <code>getFloor()</code>), and the same-floor case we parked earlier is also solvable now: a rider on the car&rsquo;s own floor goes to the queue matching the direction they asked for.</p>
+
+<pre><code>WHY THIS EXISTS — Request (instead of a plain int)
+
+Default instinct : queues of Integer floor numbers
+The pressure     : the serve rule — doors may open only when the
+                   sweep matches the rider's direction
+What breaks      : at serve time, a bare "6" cannot say WHO it is
+                   for; the car opens for riders going the wrong way
+Lost data        : the rider's intent, discarded at press time
+The fix          : Request = floor + riderDirection (null for cabin)</code></pre>
+
+<h2>Step 5: The fourth bug &mdash; a request with no correct home</h2>
+
+<p>You now hold both rules &mdash; <em>file by the car&rsquo;s travel direction, serve only on a matching sweep</em> &mdash; and you are probably feeling reasonably confident. This is the moment one scenario breaks them. (It broke mine. I stared at it for a long time thinking my whole model was wrong. It was not &mdash; one idea was missing.)</p>
+
+<blockquote><strong>Stop and think:</strong> Car at floor 3. Rider at floor 6 presses DOWN. Apply the filing rule: which queue? Now apply the serve rule when the car gets there. Something is broken &mdash; what?</blockquote>
+
+<p>Walk both options:</p>
+
+<ul>
+  <li><strong>Down-queue?</strong> That queue holds floors below the car. Facing down, the car moves <em>away</em> from floor 6 forever. Dead end.</li>
+  <li><strong>Up-queue?</strong> The filing rule says yes (6 &gt; 3), and the car climbs to 6 &mdash; where it arrives going UP, for a rider going DOWN. The serve rule says: do not open. And if the request simply stays at the head of the up-queue while the car continues to 7? Head-of-queue poisoning again.</li>
+</ul>
+
+<p>Both placements fail. Sit with it for a second before the next box.</p>
+
+<blockquote><strong>Stop and think:</strong> If no single queue is correct for the request&rsquo;s whole lifetime&hellip; does it have to spend its whole lifetime in one queue?</blockquote>
+
+<p>It does not. The request lives in <strong>two phases</strong>. First it sits in the up-queue, where its only job is to pull the car upward. The moment the car arrives at floor 6, it transfers to the down-queue, where it waits for the return sweep. Only the tick logic can see the moment of arrival, so that is where the transfer lives:</p>
+
+<pre><code>private void deferWrongDirectionRequests() {
+    if (direction == Direction.IDLE) return;
+    PriorityQueue&lt;Request&gt; active = queueFor(direction);
+    PriorityQueue&lt;Request&gt; opposite = oppositeQueueFor(direction);
+    while (headIsAtCurrentFloor(active)
+            &amp;&amp; !active.peek().servableDuring(direction)) {
+        Request deferred = active.poll();
+        if (!opposite.contains(deferred)) opposite.offer(deferred);
+    }
+}</code></pre>
+
+<pre><code>WHY THIS EXISTS — the queue transfer (defer)
+
+Default instinct : file a request once, in the right queue, forever
+The pressure     : a rider ABOVE the car wants DOWN — no single
+                   queue is right for the request's whole lifetime
+What breaks      : left in place, the request jams the head of the
+                   queue and blocks every stop behind it
+The fix          : on arrival, hand the request to the opposite queue</code></pre>
+
+<figure>
+<svg viewBox="0 0 640 370" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="f4b" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2563eb"/></marker>
+    <marker id="f4g" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#16a34a"/></marker>
+  </defs>
+  <text x="160" y="28" text-anchor="middle" font-size="15" font-weight="bold" fill="#2563eb">Phase 1 &#8212; pulls the car up</text>
+  <text x="480" y="28" text-anchor="middle" font-size="15" font-weight="bold" fill="#16a34a">Phase 2 &#8212; served on the return</text>
+
+  <line x1="100" y1="50" x2="100" y2="338" stroke="#9ca3af" stroke-width="1.5"/>
+  <g font-size="13" fill="#6b6b6b" text-anchor="end">
+    <text x="86" y="334">1</text><text x="86" y="296">2</text><text x="86" y="258">3</text><text x="86" y="220">4</text><text x="86" y="182">5</text><text x="86" y="144">6</text><text x="86" y="106">7</text><text x="86" y="68">8</text>
+  </g>
+  <circle cx="100" cy="140" r="6" fill="#dc2626"/>
+  <text x="114" y="128" font-size="13" fill="#dc2626">(6, DOWN) in upQueue</text>
+  <text x="114" y="158" font-size="12.5" fill="#6b6b6b">&#10007; door stays closed</text>
+  <rect x="112" y="241" width="50" height="26" rx="6" fill="#2563eb"/>
+  <text x="137" y="258" text-anchor="middle" font-size="13" fill="#ffffff">car</text>
+  <line x1="248" y1="254" x2="248" y2="144" stroke="#2563eb" stroke-width="2.5" marker-end="url(#f4b)"/>
+  <text x="260" y="196" font-size="13" fill="#2563eb">car climbs to 6,</text>
+  <text x="260" y="214" font-size="13" fill="#2563eb">then continues to 8</text>
+
+  <line x1="420" y1="50" x2="420" y2="338" stroke="#9ca3af" stroke-width="1.5"/>
+  <g font-size="13" fill="#6b6b6b" text-anchor="end">
+    <text x="406" y="334">1</text><text x="406" y="296">2</text><text x="406" y="258">3</text><text x="406" y="220">4</text><text x="406" y="182">5</text><text x="406" y="144">6</text><text x="406" y="106">7</text><text x="406" y="68">8</text>
+  </g>
+  <rect x="432" y="51" width="50" height="26" rx="6" fill="#2563eb"/>
+  <text x="457" y="68" text-anchor="middle" font-size="13" fill="#ffffff">car</text>
+  <line x1="545" y1="82" x2="545" y2="136" stroke="#16a34a" stroke-width="2.5" marker-end="url(#f4g)"/>
+  <circle cx="420" cy="140" r="9" fill="none" stroke="#16a34a" stroke-width="2.5"/>
+  <text x="436" y="146" font-size="13" fill="#16a34a">doors open &#10003;</text>
+  <text x="505" y="238" text-anchor="middle" font-size="13" fill="#16a34a">request now in downQueue,</text>
+  <text x="505" y="256" text-anchor="middle" font-size="13" fill="#16a34a">sweep matches the rider</text>
+</svg>
+<figcaption>One request, two phases. In the up-queue it pulls the car to floor 6 &mdash; doors stay closed, wrong sweep. Transferred to the down-queue on arrival, it is served on the way back, heading the rider&rsquo;s way.</figcaption>
+</figure>
+
+<p>With that, the per-tick logic reads like a sentence &mdash; tidy the queues where you stand; if nothing needs you here, move one floor and tidy again; then open the doors if someone is waiting:</p>
+
+<pre><code>public Integer step() {
+    if (!hasPendingRequests()) {
+        direction = Direction.IDLE;
+        return null;
+    }
+    fixQueues();                       // face work + unblock the head
+    if (!isStopAtCurrentFloor()) {
+        move();
+        fixQueues();                   // new floor: re-check everything
+    }
+    return isStopAtCurrentFloor() ? serveCurrentFloor() : null;
+}</code></pre>
+
+<p>Traced, exactly what the serve rule promised:</p>
+
+<pre><code>car idle at 3; cabin call for 8; rider on 6 presses DOWN
+
+floor 4, UP
+floor 5, UP
+floor 6, UP            &lt;- passes 6 without opening
+floor 7, UP
+floor 8, UP            *** doors open at 8 ***
+floor 7, DOWN
+floor 6, DOWN          *** doors open at 6 ***   &lt;- heading the rider's way
+IDLE</code></pre>
+
+<h2>Step 6: Look at what Elevator has become</h2>
+
+<p>Stop coding for a moment and look at the class we have been feeding since Step 1:</p>
+
+<pre><code>class Elevator {
+    // state — unchanged since Step 1
+    int currentFloor;
+    Direction direction;
+
+    // everything below was added by Steps 2–5
+    PriorityQueue&lt;Request&gt; upQueue, downQueue;
+    PriorityQueue&lt;Request&gt; chooseQueue(Request r) { ... }       // filing rule
+    void deferWrongDirectionRequests() { ... }                  // queue transfer
+    void fixQueues() { ... }
+    boolean isStopAtCurrentFloor() { ... }                      // serve rule
+    Integer step() { ... }
+    Integer serveCurrentFloor() { ... }
+    void move() { ... }
+}</code></pre>
+
+<blockquote><strong>Stop and think:</strong> In Steps 2 through 5 we changed this class four times. Which lines did we touch each time &mdash; and which lines did we never touch at all?</blockquote>
+
+<p>Every single change was scheduling: the queues, the filing rule, the serve rule, the transfer. The car&rsquo;s own state &mdash; <code>currentFloor</code>, <code>direction</code>, <code>move()</code> &mdash; was never touched once. The class is telling us where to cut. Two things live in one body: a physical car that is finished, and a scheduling algorithm that clearly is not (we have fixed four bugs in it so far, and more pressure is coming). So we split along the line the bugs themselves drew:</p>
+
+<pre><code>class Elevator {                         // the car: finished, stable
+    int currentFloor;
+    Direction direction;
+    void move() { ... }
+}
+
+class ElevatorController {               // the algorithm: still evolving
+    Elevator elevator;                   // one per car
+    PriorityQueue&lt;Request&gt; upQueue, downQueue;
+    void acceptHallCall(int floor, Direction riderDirection) { ... }
+    void acceptCabinCall(int floor) { ... }
+    Integer step() { ... }
+}</code></pre>
+
+<pre><code>WHY THIS EXISTS — ElevatorController
+
+Default instinct : keep the queues and the logic inside Elevator
+                   (which is exactly what we did for five steps!)
+The pressure     : four bugs in a row — every single fix landed in
+                   the scheduling half; the car half never moved
+What breaks      : each algorithm change risks the car's state and
+                   movement code; scheduling can't be tested alone
+The fix          : split along the line the bugs drew —
+                   ElevatorController owns the algorithm, one per car</code></pre>
+
+<p>Note the order of events. We did not start with a controller because a pattern said so &mdash; we <em>earned</em> it, by watching one half of a class change four times while the other half sat still. If the scheduling had stayed three lines long, the split would never have been worth it, and the queues-inside-Elevator design would have been perfectly fine.</p>
+
+<h2>Step 7: The second elevator mints the Dispatcher</h2>
+
+<p>One car works end to end now. The building adds a second one.</p>
+
+<blockquote><strong>Stop and think:</strong> A rider on floor 6 presses UP. With one car, the button simply called that car&rsquo;s controller. Now there are two controllers. A question appears in the system that did not exist a minute ago. What is the question &mdash; and which existing class has the information to answer it?</blockquote>
+
+<p>The new question is <strong>&ldquo;which car takes this call?&rdquo;</strong> Check your classes one by one: the button knows only its own floor; each controller knows only its own car&rsquo;s queues. Choosing between cars needs a view of the whole fleet &mdash; and <em>nothing has it</em>. You could give every controller references to all the other controllers, but then each car&rsquo;s brain is entangled with every other car&rsquo;s, and you will feel it the first time you change anything.</p>
+
+<p>So the second elevator forces a new class into existence &mdash; one that sees all controllers and assigns each hall call to exactly one. And in the naive spirit of this article, its first version is deliberately dumb:</p>
+
+<pre><code>class Dispatcher {
+    List&lt;ElevatorController&gt; fleet;
+
+    void dispatch(int floor, Direction riderDirection) {
+        ElevatorController nearest = fleet.get(0);
+        for (ElevatorController c : fleet) {
+            if (c.distanceTo(floor) &lt; nearest.distanceTo(floor)) nearest = c;
+        }
+        nearest.acceptHallCall(floor, riderDirection);     // nearest car, hard-coded
+    }
+}</code></pre>
+
+<pre><code>WHY THIS EXISTS — Dispatcher
+
+Default instinct : with one car, nothing — the controller suffices
+The pressure     : a second elevator arrives
+What breaks      : a hall call must pick ONE car; the button knows
+                   only its floor, each controller only its own car
+Ownerless job    : "which car takes this call?" — needs a view of
+                   the WHOLE fleet, which no existing class has
+The fix          : Dispatcher — the one class that sees all cars</code></pre>
+
+<h2>Step 8: The hard-coded policy cracks &mdash; and Strategy emerges</h2>
+
+<blockquote><strong>Stop and think:</strong> Rider on floor 6 presses UP. Car 1 is at floor 7 heading down. Car 2 idles at floor 3. Car 3 is at floor 5 heading up. What does our nearest-car loop choose &mdash; and is that actually the best car to send?</blockquote>
+
+<p>Nearest-car picks Car 1: one floor away &mdash; and heading <em>away</em> from the rider. It will finish its whole downward sweep before coming back. Car 3 would have passed floor 6 next tick, already going up. Our hard-coded loop made a defensible-looking choice that a real rider would curse at.</p>
+
+<figure>
+<svg viewBox="0 0 640 330" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="f5d" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#242424"/></marker>
+  </defs>
+  <line x1="90" y1="44" x2="90" y2="290" stroke="#9ca3af" stroke-width="1.5"/>
+  <g font-size="13" fill="#6b6b6b" text-anchor="end">
+    <text x="74" y="284">1</text><text x="74" y="252">2</text><text x="74" y="220">3</text><text x="74" y="188">4</text><text x="74" y="156">5</text><text x="74" y="124">6</text><text x="74" y="92">7</text><text x="74" y="60">8</text>
+  </g>
+  <line x1="98" y1="120" x2="244" y2="120" stroke="#d97706" stroke-width="1.5" stroke-dasharray="5 4" opacity="0.6"/>
+  <line x1="276" y1="120" x2="504" y2="120" stroke="#d97706" stroke-width="1.5" stroke-dasharray="5 4" opacity="0.6"/>
+  <line x1="536" y1="120" x2="560" y2="120" stroke="#d97706" stroke-width="1.5" stroke-dasharray="5 4" opacity="0.6"/>
+  <circle cx="90" cy="120" r="6" fill="#d97706"/>
+  <text x="104" y="112" font-size="13" fill="#d97706">rider presses UP</text>
+
+  <line x1="260" y1="56" x2="260" y2="280" stroke="#e5e7eb" stroke-width="1.5"/>
+  <rect x="232" y="75" width="56" height="26" rx="6" fill="#2563eb"/>
+  <text x="260" y="92" text-anchor="middle" font-size="13" fill="#ffffff">Car 1</text>
+  <line x1="260" y1="106" x2="260" y2="132" stroke="#242424" stroke-width="2" marker-end="url(#f5d)"/>
+  <text x="260" y="152" text-anchor="middle" font-size="12" fill="#6b6b6b">going down</text>
+
+  <line x1="390" y1="56" x2="390" y2="280" stroke="#e5e7eb" stroke-width="1.5"/>
+  <rect x="362" y="203" width="56" height="26" rx="6" fill="#2563eb"/>
+  <text x="390" y="220" text-anchor="middle" font-size="13" fill="#ffffff">Car 2</text>
+  <text x="390" y="250" text-anchor="middle" font-size="12" fill="#6b6b6b">idle, no stops</text>
+
+  <line x1="520" y1="56" x2="520" y2="280" stroke="#e5e7eb" stroke-width="1.5"/>
+  <rect x="492" y="139" width="56" height="26" rx="6" fill="#2563eb"/>
+  <text x="520" y="156" text-anchor="middle" font-size="13" fill="#ffffff">Car 3</text>
+  <line x1="520" y1="135" x2="520" y2="111" stroke="#242424" stroke-width="2" marker-end="url(#f5d)"/>
+  <text x="520" y="185" text-anchor="middle" font-size="12" fill="#6b6b6b">going up</text>
+
+  <g font-size="13" font-weight="bold" text-anchor="middle">
+    <text x="260" y="306" fill="#dc2626">Nearest</text>
+    <text x="260" y="324" fill="#dc2626">&#8594; Car 1</text>
+    <text x="390" y="306" fill="#7c3aed">Least loaded</text>
+    <text x="390" y="324" fill="#7c3aed">&#8594; Car 2</text>
+    <text x="520" y="306" fill="#16a34a">Direction-aware</text>
+    <text x="520" y="324" fill="#16a34a">&#8594; Car 3</text>
+  </g>
+</svg>
+<figcaption>One button press, three defensible answers &mdash; which car is &ldquo;right&rdquo; depends on the goal, and that is exactly what makes selection a policy.</figcaption>
+</figure>
+
+<p>So is &ldquo;send the car that passes on a matching sweep&rdquo; simply the correct rule? Try to defend the other candidates before deciding:</p>
+
+<table>
+  <tr><th>Goal</th><th>Pick</th><th>Policy</th></tr>
+  <tr><td>Minimize distance</td><td>Car 1 (one floor away)</td><td><strong>Nearest car</strong> &mdash; what we hard-coded</td></tr>
+  <tr><td>Minimize rider wait</td><td>Car 3 (passes 6 next tick, going up)</td><td><strong>Direction-aware</strong> &mdash; prefer a matching sweep; penalize cars moving away</td></tr>
+  <tr><td>Balance load and wear</td><td>Car 2 (zero pending stops)</td><td><strong>Least loaded</strong> &mdash; evens the fleet out, ignores distance</td></tr>
+</table>
+
+<p>All three are defensible &mdash; the &ldquo;right&rdquo; one depends on a goal that belongs to the building owner, not to our code. Follow the chain: multiple valid algorithms &rarr; because the choice depends on someone else&rsquo;s goal &rarr; so selection is a <em>policy</em> &rarr; policies change &rarr; so the implementations must be interchangeable behind one interface. Our hard-coded loop grows into:</p>
+
+<pre><code>public interface ElevatorSelectionStrategy {
+    ElevatorController select(List&lt;ElevatorController&gt; fleet,
+                              int floor, Direction riderDirection);
+}
+
+class Dispatcher {
+    private ElevatorSelectionStrategy strategy = new NearestCarStrategy();
+
+    void setStrategy(ElevatorSelectionStrategy strategy) { this.strategy = strategy; }
+
+    void dispatch(int floor, Direction riderDirection) {
+        strategy.select(fleet, floor, riderDirection)
+                .acceptHallCall(floor, riderDirection);
+    }
+}</code></pre>
+
+<p>Only now does the name arrive: this is the <strong>Strategy pattern</strong>. We did not set out to use it &mdash; the pressure of a changing goal created it. (And notice: the direction-aware strategy cannot exist without the rider&rsquo;s button direction. That is the hall button&rsquo;s second job &mdash; the first was the serve rule.)</p>
+
+<pre><code>WHY THIS EXISTS — ElevatorSelectionStrategy
+
+Default instinct : hard-code "nearest car" inside the dispatcher
+                   (which is exactly what we did!)
+The pressure     : three goals, three different "right" cars — and
+                   the goal belongs to the building, not the code
+What breaks      : every change of goal rewrites the dispatcher's
+                   internals; you can't compare policies side by side
+The fix          : a swappable interface — the Strategy pattern</code></pre>
+
+<h2>Where we ended up</h2>
+
+<p>Eight steps ago this was one class with a LinkedList. Here is everything we have now &mdash; and every piece can point at the bug or pressure that created it:</p>
+
+<table>
+  <tr><th>Piece</th><th>Born in</th><th>Created by</th></tr>
+  <tr><td><code>Elevator</code></td><td>Step 1</td><td>The naive start &mdash; car state and movement</td></tr>
+  <tr><td>Two heaps</td><td>Step 2</td><td>FCFS zig-zag, then one heap breaking the down-sweep</td></tr>
+  <tr><td>Filing rule</td><td>Step 3</td><td>Head-of-queue poisoning &mdash; the runaway car</td></tr>
+  <tr><td><code>Request</code></td><td>Step 4</td><td>A bare int cannot say who a stop is for</td></tr>
+  <tr><td>Queue transfer</td><td>Step 5</td><td>The rider-above-wants-DOWN request with no correct home</td></tr>
+  <tr><td><code>ElevatorController</code></td><td>Step 6</td><td>Four bugs in a row landing in one half of a two-job class</td></tr>
+  <tr><td><code>Dispatcher</code></td><td>Step 7</td><td>The second elevator &mdash; &ldquo;which car?&rdquo; had no owner</td></tr>
+  <tr><td><code>SelectionStrategy</code></td><td>Step 8</td><td>The hard-coded nearest-car policy choosing a wrong-way car</td></tr>
+</table>
+
+<pre><code>The request flow we built
+
+HallButton (floor, riderDirection)
+    ↓
+Dispatcher              "which car?"  → SelectionStrategy
+    ↓
+ElevatorController      files by TRAVEL direction  → upQueue / downQueue
+    ↓  each tick
+fixQueues → move or serve   (serve only on a MATCHING sweep;
+    ↓                        wrong-direction heads transfer queues)
+Elevator moves / doors open</code></pre>
+
+<p>There is, of course, more. Someone has to construct all these objects in the right order. Real buttons fire from many threads while the car moves. Doors take time to open and close, cars have weight limits, and modern systems let you key in your destination before boarding. I am leaving all of it out deliberately &mdash; not because it is unimportant, but because you now have the only tool you need for every one of those problems: write the naive version, find the scenario that breaks it, and let the fix name itself.</p>
+
+<h2>What to take away</h2>
+
+<ol>
+  <li><strong>Build naively first, and let the bugs mint your classes.</strong> Every &ldquo;design&rdquo; class in this article &mdash; Request, Controller, Dispatcher, Strategy &mdash; was a repair for a failure we watched happen. A class that cannot point to its bug has not earned its place.</li>
+  <li>Split a class along the line the changes draw. We extracted the controller only after four fixes in a row landed in one half while the other half sat still.</li>
+  <li>A new class is justified by an ownerless question. &ldquo;Which car takes this call?&rdquo; had no owner &mdash; that is why the Dispatcher exists.</li>
+  <li>A hall call has two directions: the rider&rsquo;s intent and the car&rsquo;s travel. File by travel, serve by intent.</li>
+  <li>One heap cannot run a sweep &mdash; up and down need opposite orderings. Two heaps, split by side of the car.</li>
+  <li>Head-of-queue poisoning: a consumer that only inspects the front of a queue is one unserviceable element away from blocking everything. Keep the head actionable.</li>
+  <li>Some requests need two phases &mdash; pull the car in, then switch queues on arrival.</li>
+  <li>Multiple defensible answers means it is a policy &mdash; and the pressure of a changing goal is what creates the Strategy pattern, not the other way around.</li>
+</ol>
+
+<p>One last thing. If some of the pause boxes beat you &mdash; good. They beat me too, the first time. We built this design together by proposing the naive thing, breaking it, and repairing it; a design you partly fought for stays with you in a way a design you read never will.</p>
+
+<p>Which pause got you? Tell me in the comments &mdash; and if this made you actually stop and think somewhere, that is worth a clap.</p>
+
+</body>
+</html>

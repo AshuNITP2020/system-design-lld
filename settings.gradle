@@ -1,0 +1,7 @@
+rootProject.name = 'system-design-lld'
+
+// One subproject per machine-coding problem. Each keeps its own package
+// namespace, so the problems stay independent and nothing has to be renamed.
+include 'splitwise'
+include 'tictactoe'
+include 'elevator'
